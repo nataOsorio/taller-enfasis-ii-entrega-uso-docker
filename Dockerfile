@@ -1,36 +1,37 @@
-# ============================================================
-#  Dockerfile de partida — Taller
-#
-#  Este archivo funciona: construye una imagen y la aplicación
-#  responde. Pero contiene 14 fallas de tamano, cache, seguridad
-#  y reproducibilidad.
-#
-#  Tu trabajo es encontrarlas y corregirlas SIN tocar el codigo
-#  fuente de la aplicacion.
-#
-#  No borres este archivo
-# ============================================================
+# ================================================================
+#  Dockerfile optimizado - 8 capas
+# ================================================================
 
-FROM python:3.12
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-COPY . .
+COPY app/requirements.txt .
 
-RUN apt-get update && apt-get install -y build-essential curl vim git postgresql-client
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --upgrade pip
+# ---- Imagen final ----
+FROM python:3.12-slim
 
-RUN pip install -r app/requirements.txt
+# Crea usuario, instala curl y limpia en UNA capa
+RUN adduser --disabled-password --gecos '' appuser && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN pip install pytest black flake8 ipython httpx
+WORKDIR /app
 
-ENV DB_PASSWORD=Sup3rS3cret2026
+# Copia todo /usr/local desde builder en una sola capa
+COPY --from=builder --chown=appuser:appuser /usr/local /usr/local
 
-RUN echo "$DB_PASSWORD" > /app/.dbpass
+# Copia el código de la app
+COPY --chown=appuser:appuser app/ app/
 
-RUN rm /app/.dbpass
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
 
-CMD python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

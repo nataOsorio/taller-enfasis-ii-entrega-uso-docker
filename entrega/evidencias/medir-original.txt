@@ -1,0 +1,13 @@
+==============================================
+ Midiendo: mi-app:original
+==============================================
+Tamano.................: 481.3 MB
+Capas..................: 15
+Usuario configurado....: root (NO DEFINIDO)
+Healthcheck............: no
+Forma de CMD...........: shell (revisar manejo de senales)
+Secretos expuestos.....: SI  <-- revisa docker history y docker inspect
+Prueba funcional.......: PASA
+
+Fila para ENTREGA.md:
+| mi-app:original | 481.3 MB | 15 | root (NO DEFINIDO) | PASA |

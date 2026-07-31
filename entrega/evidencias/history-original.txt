@@ -1,0 +1,25 @@
+IMAGE          CREATED          CREATED BY                                      SIZE      COMMENT
+8b356bf6f532   52 minutes ago   CMD ["/bin/sh" "-c" "python -m uvicorn app.m…   0B        buildkit.dockerfile.v0
+<missing>      52 minutes ago   EXPOSE [8000/tcp]                               0B        buildkit.dockerfile.v0
+<missing>      52 minutes ago   RUN /bin/sh -c rm /app/.dbpass # buildkit       8.19kB    buildkit.dockerfile.v0
+<missing>      52 minutes ago   RUN /bin/sh -c echo "$DB_PASSWORD" > /app/.d…   12.3kB    buildkit.dockerfile.v0
+<missing>      52 minutes ago   ENV DB_PASSWORD=Sup3rS3cret2026                 0B        buildkit.dockerfile.v0
+<missing>      52 minutes ago   RUN /bin/sh -c pip install pytest black flak…   95.5MB    buildkit.dockerfile.v0
+<missing>      52 minutes ago   RUN /bin/sh -c pip install -r app/requiremen…   54.7MB    buildkit.dockerfile.v0
+<missing>      53 minutes ago   RUN /bin/sh -c pip install --upgrade pip # b…   19.8MB    buildkit.dockerfile.v0
+<missing>      53 minutes ago   RUN /bin/sh -c apt-get update && apt-get ins…   86.4MB    buildkit.dockerfile.v0
+<missing>      53 minutes ago   COPY . . # buildkit                             283kB     buildkit.dockerfile.v0
+<missing>      53 minutes ago   WORKDIR /app                                    8.19kB    buildkit.dockerfile.v0
+<missing>      2 weeks ago      CMD ["python3"]                                 0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -eux;  for src in idle3 p…   16.4kB    buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -eux;   wget -O python.ta…   72.8MB    buildkit.dockerfile.v0
+<missing>      2 weeks ago      ENV PYTHON_SHA256=c08bc65a81971c1dd578318282…   0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      ENV PYTHON_VERSION=3.12.13                      0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      ENV GPG_KEY=7169605F62C751356D054A26A821E680…   0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -eux;  apt-get update;  a…   19.8MB    buildkit.dockerfile.v0
+<missing>      2 weeks ago      ENV LANG=C.UTF-8                                0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      ENV PATH=/usr/local/bin:/usr/local/sbin:/usr…   0B        buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -ex;  apt-get update;  ap…   694MB     buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -eux;  apt-get update;  a…   202MB     buildkit.dockerfile.v0
+<missing>      2 weeks ago      RUN /bin/sh -c set -eux;  apt-get update;  a…   65MB      buildkit.dockerfile.v0
+<missing>      2 weeks ago      # debian.sh --arch 'amd64' out/ 'trixie' '@1…   134MB     debuerreotype 0.17

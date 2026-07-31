@@ -1,0 +1,13 @@
+==============================================
+ Midiendo: mi-app:optimizada
+==============================================
+Tamano.................: 71.1 MB
+Capas..................: 8
+Usuario configurado....: appuser
+Healthcheck............: si
+Forma de CMD...........: exec
+Secretos expuestos.....: no
+Prueba funcional.......: PASA
+
+Fila para ENTREGA.md:
+| mi-app:optimizada | 71.1 MB | 8 | appuser | PASA |
