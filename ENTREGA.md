@@ -21,7 +21,7 @@
 
 ## 2. Fallas identificadas
 
-Encontramos **14** de 14.
+Identifique **14** fallas.
 
 | # | Falla | Línea | Corrección aplicada | Concepto |
 |---|---|---|---|---|
@@ -50,21 +50,110 @@ No. Las capas son inmutables. La capa donde se escribió la contraseña (12.3 kB
 
 **¿La contraseña sigue siendo recuperable? Evidencia:**
 
-**Sí, la contraseña sigue siendo recuperable** por dos razones:
+Sí, la contraseña se puede recuperar de dos formas:
 
-1. **La variable de entorno `DB_PASSWORD` está expuesta** en los metadatos de la imagen:
-   ```bash
-   $ docker inspect --format '{{.Config.Env}}' mi-app:original | grep -i password
-   [PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 DB_PASSWORD=Sup3rS3cret2026]
+1.La variable de entorno DB_PASSWORD está guardada en los metadatos de la imagen. Ejecuté:
 
-2. **El historial de capas muestra el comando que escribió la contraseña en el archivo:**
-$ docker history --no-trunc mi-app:original | grep -i password
+docker inspect --format '{{.Config.Env}}' mi-app:original | grep -i password
+Y obtuve:
+
+[PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 DB_PASSWORD=Sup3rS3cret2026]
+2. También en el historial de capas se ve claramente que se escribió la contraseña:
+
+docker history --no-trunc mi-app:original | grep -i password
+Salida:
+
 ENV DB_PASSWORD=Sup3rS3cret2026
 RUN /bin/sh -c echo "$DB_PASSWORD" > /app/.dbpass # buildkit
 
-Incluso si el archivo **/app/.dbpass** fue borrado, la variable de entorno DB_PASSWORD aún permite recuperar la contraseña en un contenedor en ejecución:
+Incluso si el archivo /app/.dbpass fue borrado, la variable de entorno sigue expuesta y cualquier persona con acceso a la imagen puede verla. Para comprobarlo, ejecuté un contenedor y mostré la variable:
 
-$ docker run --rm mi-app:original sh -c 'echo $DB_PASSWORD'
+docker run --rm mi-app:original sh -c 'echo $DB_PASSWORD'
 Sup3rS3cret2026
 
- En conclusión, el rm no hace que la contraseña sea irrecuperable, porque la variable de entorno sigue accesible y la capa que contenía el archivo permanece en el historial de la imagen.
+**¿Cuál es la forma correcta de manejar ese secreto?**
+
+Lo correcto es nunca guardar secretos en la imagen. Las capas son inmutables y cualquier secreto que se escriba queda grabado para siempre. La variable de entorno con ENV también queda fija en los metadatos de la imagen.
+
+Las alternativas seguras son:
+
+Usar build secrets de Docker BuildKit (--secret) para pasar la contraseña solo durante la construcción, sin que se almacene en las capas.
+
+Pasar la contraseña en tiempo de ejecución, con -e DB_PASSWORD=... al hacer docker run, o mediante un archivo .env montado como volumen.
+
+---
+
+## 4. Comparativa de imágenes base
+
+
+| Base | Tamaño final | Tiempo de build | Observaciones |
+|---|---|---|---|
+| `python:3.12` | ~481 MB | ~2 min | Imagen completa con muchas herramientas y paquetes. Muy pesada para producción. |
+| `python:3.12-slim` | 71.1 MB | ~1 min | Basada en Debian slim, solo lo esencial. Excelente equilibrio tamaño-compatibilidad. |
+| `python:3.12-alpine` | ~50 MB (estimado) | ~2.5 min | Muy pequeña pero tuve problemas con dependencias nativas que requieren compilación con musl. |
+
+**Cuál elegiríamos para producción y por qué:**
+
+Elegiría `python:3.12-slim` porque es la que mejor combina tamaño reducido, compatibilidad total con las dependencias del proyecto y un tiempo de build razonable. Además, evita los problemas que tuve con Alpine, donde algunas librerías como `uvloop` y `httptools` fallaban al compilar con musl, y la prueba funcional fallaba intermitentemente. `slim` es la opción más estable y segura para este proyecto.
+---
+
+## 5. Un cambio que intentamos y no funcionó
+
+**Qué intente:** Intente probar `python:3.12-alpine` como imagen base para reducir aún más el tamaño final de la imagen.
+
+**Qué pasó:** Lo que pasó fue que al instalar las dependencias de `requirements.txt`, las librerías `uvloop` y `httptools` (necesarias para `uvicorn[standard]`) no estaban precompiladas para Alpine y requerían compilación con `gcc` y `musl-dev`. Tuve que instalar esos paquetes de construcción, lo que aumentó el tiempo de build y el tamaño final (dejó de ser tan pequeño). Además, la prueba funcional fallaba de forma intermitente porque algunas librerías compiladas no funcionaban igual que en glibc.
+
+**Por qué no funcionó:** No fuimncionó porque Alpine usa musl en lugar de glibc, y muchas librerías de Python con componentes en C no están optimizadas para ese entorno. Compilarlas manualmente introduce riesgos de compatibilidad y alarga el proceso de construcción. Para un proyecto con varias dependencias nativas, Alpine puede ser más problemático que beneficioso. Por eso descarté Alpine y me quedé con `slim`, que funciona sin complicaciones y da un tamaño más que aceptable.
+
+---
+
+## 6. Nuestro Dockerfile final
+
+```dockerfile
+# ================================================================
+#  Dockerfile optimizado - Taller Línea de Énfasis II
+#  Natalia Muñoz Osorio
+#  Fecha: 2026-07-31
+# ================================================================
+
+# ---- Etapa 1: Builder (instalación de dependencias) ----
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Copiar solo requirements para aprovechar caché
+COPY app/requirements.txt .
+
+# Instalar dependencias sin caché y sin herramientas de desarrollo
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ---- Etapa 2: Imagen final (ejecución) ----
+FROM python:3.12-slim
+
+# Crear usuario no root e instalar curl (para healthcheck) en UNA capa
+RUN adduser --disabled-password --gecos '' appuser && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copiar todo /usr/local desde builder (incluye binarios y librerías)
+COPY --from=builder --chown=appuser:appuser /usr/local /usr/local
+
+# Copiar el código de la aplicación
+COPY --chown=appuser:appuser app/ app/
+
+# Cambiar al usuario no root
+USER appuser
+
+# Healthcheck para monitoreo
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Puerto expuesto
+EXPOSE 8000
+
+# Comando en formato exec (para manejar señales correctamente)
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
